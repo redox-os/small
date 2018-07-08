@@ -913,6 +913,16 @@ impl Ord for String {
     }
 }
 
+impl std::fmt::Write for String {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        Ok(self.push_str(s))
+    }
+
+    fn write_char(&mut self, c: char) -> std::fmt::Result {
+        Ok(self.push(c))
+    }
+}
+
 impl std::fmt::Display for String {
     fn fmt(&self, fm: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         (self as &str).fmt(fm)
