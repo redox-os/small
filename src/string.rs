@@ -615,6 +615,24 @@ impl String {
     }
 }
 
+impl AsRef<str> for String {
+    fn as_ref(&self) -> &str {
+        self
+    }
+}
+
+impl AsRef<[u8]> for String {
+    fn as_ref(&self) -> &[u8] {
+        self.as_bytes()
+    }
+}
+
+impl Default for String {
+    fn default() -> String {
+        String::new()
+    }
+}
+
 impl Borrow<str> for String {
     fn borrow(&self) -> &str {
         self
