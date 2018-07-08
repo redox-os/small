@@ -863,6 +863,14 @@ impl From<std::boxed::Box<str>> for String {
     }
 }
 
+#[cfg(feature = "std")]
+impl std::net::ToSocketAddrs for String {
+    type Iter = std::option::IntoIter<std::net::SocketAddr>;
+    fn to_socket_addrs(&self) -> std::io::Result<Self::Iter> {
+        (&self).to_socket_addrs()
+    }
+}
+
 #[derive(Clone, Copy)]
 pub enum ParseError {}
 
