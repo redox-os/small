@@ -3,10 +3,12 @@ image: "rust:nightly"
 
 test:std:
   script:
+  - rustup toolchain add nightly
   - rustc --version && cargo --version      # Print version info for debugging
-  - cargo test --all --verbose --features std # Test with `std` enabled
+  - cargo +nightly test --all --verbose --features std # Test with `std` enabled
 
 test:no_std:
   script:
+  - rustup toolchain add nightly
   - rustc --version && cargo --version
   - cargo +nightly test --all --verbose --no-default-features
