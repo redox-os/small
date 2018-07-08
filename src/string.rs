@@ -356,7 +356,7 @@ impl String {
     pub fn as_bytes(&self) -> &[u8] {
         match self.inner {
             Inner::Stack { ref data } => {
-                data
+                &data[..self.len()]
             },
             Inner::Heap { data, .. } => {
                 unsafe {
