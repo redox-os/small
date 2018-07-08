@@ -355,12 +355,10 @@ impl String {
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
         match self.inner {
-            Inner::Stack { data } => {
-                unsafe {
-                    &::std::slice::from_raw_parts(&data[0], self.len())
-                }
+            Inner::Stack { ref data } => {
+                data
             },
-            Inner::Heap { capacity: _, data } => {
+            Inner::Heap { data, .. } => {
                 unsafe {
                     &::std::slice::from_raw_parts(data, self.len())
                 }
@@ -370,18 +368,14 @@ impl String {
 
     /// The mutable byte representation of the string
     #[inline]
-    pub fn as_mut_bytes(&mut self) -> &mut [u8] {
+    pub unsafe fn as_mut_bytes(&mut self) -> &mut [u8] {
         let len = self.len();
         match &mut self.inner {
             Inner::Stack { ref mut data } => {
-                unsafe {
-                    ::std::slice::from_raw_parts_mut(&mut (*data)[0], len)
-                }
+                data
             },
             Inner::Heap { capacity: _, data } => {
-                unsafe {
-                    ::std::slice::from_raw_parts_mut(*data, len)
-                }
+                ::std::slice::from_raw_parts_mut(*data, len)
             }
         }
     }
@@ -398,9 +392,7 @@ impl String {
         // we match &mut self.inner so we don't copy the byte array
         match (&mut self.inner, self.len + item.len()) {
             (Inner::Stack { data }, 0...23) => {
-                unsafe {
-                    ::std::ptr::copy_nonoverlapping(item.as_ptr(), &mut data[self.len] as *mut _ as *mut u8, item.len())
-                }
+                data[self.len..][..item.len()].copy_from_slice(item.as_bytes());
             },
             (Inner::Heap { capacity, ref data }, x) => {
                 if x > *capacity {
@@ -435,9 +427,7 @@ impl String {
         // we match &mut self.inner so we don't copy the byte array
         match (&mut self.inner, self.len + ch_len) {
             (Inner::Stack { data }, 0...23) => {
-                unsafe {
-                    ::std::ptr::copy_nonoverlapping(chs.as_ptr(), &mut data[self.len] as *mut _ as *mut u8, ch_len)
-                }
+                data[self.len..][..ch_len].copy_from_slice(&chs[..ch_len]);
             },
             (Inner::Heap { capacity, ref data }, x) => {
                 if x > *capacity {
@@ -606,16 +596,15 @@ impl String {
     fn grow(&mut self) {
         use std::alloc::{ handle_alloc_error, realloc, Layout };
         if let Inner::Heap { ref mut capacity, ref mut data } = &mut self.inner {
-            let d = unsafe {
-                realloc(*data, Layout::from_size_align_unchecked(*capacity, 32), *capacity*2)
-            };
-            if d.is_null() {
-                unsafe {
-                    handle_alloc_error(Layout::from_size_align_unchecked(*capacity, 32));
+            unsafe {
+                let layout = Layout::from_size_align_unchecked(*capacity, 32);
+                let d = realloc(*data, layout, *capacity*2);
+                if d.is_null() {
+                    handle_alloc_error(layout);
                 }
+                *data = d;
+                *capacity *= 2;
             }
-            *data = d;
-            *capacity *= 2;
         }
     }
 }
@@ -713,11 +702,8 @@ impl<'a> From<&'a str> for String {
                 0...23 => {
                     Inner::Stack {
                         data: {
-                            use std::ptr;
                             let mut d = [0u8;23];
-                            unsafe {
-                                ptr::copy_nonoverlapping(item.as_ptr(), &mut d[0], item.len())
-                            };
+                            d[..item.len()].copy_from_slice(item.as_bytes());
                             d
                         }
                     }
