@@ -1,5 +1,5 @@
 # Use cargo to test the project
-image: "rust:nightly"
+image: "rust:latest"
 
 test:std:
   script:
