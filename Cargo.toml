@@ -1,0 +1,11 @@
+[package]
+name = "small"
+version = "0.1.0"
+authors = ["Tom Almeida <tommoa256@gmail.com>"]
+
+[features]
+default = ["std"]
+std = []
+
+[dependencies]
+smallvec = { version = "*", default-features = false }
