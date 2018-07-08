@@ -13,6 +13,3 @@ mod std {
 
 pub mod string;
 pub use string::String;
-
-extern crate smallvec;
-pub use smallvec::SmallVec as Vec;
