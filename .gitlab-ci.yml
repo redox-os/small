@@ -1,7 +1,12 @@
-image: "rust:latest"
-
 # Use cargo to test the project
-test:cargo:
+test:std:
+  image: "rust:latest"
   script:
   - rustc --version && cargo --version      # Print version info for debugging
-  - cargo test --all --verbose
+  - cargo +stable test --all --verbose --features std # Test with `std` enabled
+
+test:nightly:
+  image: "rust:nightly"
+  script:
+  - rustc --version && cargo --version
+  - cargo +nightly test --all --verbose --no-default-features
