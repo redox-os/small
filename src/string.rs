@@ -708,6 +708,102 @@ impl std::hash::Hash for String {
     }
 }
 
+impl std::ops::Index<std::ops::Range<usize>> for String {
+    type Output = str;
+
+    #[inline]
+    fn index(&self, index: std::ops::Range<usize>) -> &str {
+        &self[..][index]
+    }
+}
+
+impl std::ops::Index<std::ops::RangeTo<usize>> for String {
+    type Output = str;
+
+    #[inline]
+    fn index(&self, index: std::ops::RangeTo<usize>) -> &str {
+        &self[..][index]
+    }
+}
+
+impl std::ops::Index<std::ops::RangeFrom<usize>> for String {
+    type Output = str;
+
+    #[inline]
+    fn index(&self, index: std::ops::RangeFrom<usize>) -> &str {
+        &self[..][index]
+    }
+}
+
+impl std::ops::Index<std::ops::RangeFull> for String {
+    type Output = str;
+
+    #[inline]
+    fn index(&self, _index: std::ops::RangeFull) -> &str {
+        self
+    }
+}
+
+impl std::ops::Index<std::ops::RangeInclusive<usize>> for String {
+    type Output = str;
+
+    #[inline]
+    fn index(&self, index: std::ops::RangeInclusive<usize>) -> &str {
+        ::std::ops::Index::index(&**self, index)
+    }
+}
+
+impl std::ops::Index<std::ops::RangeToInclusive<usize>> for String {
+    type Output = str;
+
+    #[inline]
+    fn index(&self, index: std::ops::RangeToInclusive<usize>) -> &str {
+        ::std::ops::Index::index(&**self, index)
+    }
+}
+
+impl std::ops::IndexMut<std::ops::Range<usize>> for String {
+    #[inline]
+    fn index_mut(&mut self, index: std::ops::Range<usize>) -> &mut str {
+        &mut self[..][index]
+    }
+}
+
+impl std::ops::IndexMut<std::ops::RangeTo<usize>> for String {
+    #[inline]
+    fn index_mut(&mut self, index: std::ops::RangeTo<usize>) -> &mut str {
+        &mut self[..][index]
+    }
+}
+
+impl std::ops::IndexMut<std::ops::RangeFrom<usize>> for String {
+    #[inline]
+    fn index_mut(&mut self, index: std::ops::RangeFrom<usize>) -> &mut str {
+        &mut self[..][index]
+    }
+}
+
+impl std::ops::IndexMut<std::ops::RangeFull> for String {
+    #[inline]
+    fn index_mut(&mut self, _index: std::ops::RangeFull) -> &mut str {
+        self
+    }
+}
+
+impl std::ops::IndexMut<std::ops::RangeInclusive<usize>> for String {
+    #[inline]
+    fn index_mut(&mut self, index: std::ops::RangeInclusive<usize>) -> &mut str {
+        std::ops::IndexMut::index_mut(&mut **self, index)
+    }
+}
+
+impl std::ops::IndexMut<std::ops::RangeToInclusive<usize>> for String {
+    #[inline]
+    fn index_mut(&mut self, index: std::ops::RangeToInclusive<usize>) -> &mut str {
+        std::ops::IndexMut::index_mut(&mut **self, index)
+    }
+}
+
 impl From<std::string::String> for String {
     fn from(item: std::string::String) -> String {
         use std::mem;
