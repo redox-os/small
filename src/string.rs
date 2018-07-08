@@ -702,6 +702,12 @@ impl Clone for String {
     }
 }
 
+impl std::hash::Hash for String {
+    fn hash<H: std::hash::Hasher>(&self, hs: &mut H) {
+        (**self).hash(hs)
+    }
+}
+
 impl From<std::string::String> for String {
     fn from(item: std::string::String) -> String {
         use std::mem;
