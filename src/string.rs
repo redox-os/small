@@ -15,6 +15,9 @@ enum Inner {
 /// Inner is safe to send between threads
 unsafe impl Send for Inner {}
 
+/// Inner is safe to sync between threads
+unsafe impl Sync for Inner {}
+
 /// A string which stores up to 24 bytes on the stack
 #[derive(Debug)]
 pub struct String {
