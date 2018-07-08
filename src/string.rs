@@ -616,24 +616,28 @@ impl String {
 }
 
 impl AsRef<str> for String {
+    #[inline]
     fn as_ref(&self) -> &str {
         self
     }
 }
 
 impl AsRef<[u8]> for String {
+    #[inline]
     fn as_ref(&self) -> &[u8] {
         self.as_bytes()
     }
 }
 
 impl Default for String {
+    #[inline]
     fn default() -> String {
         String::new()
     }
 }
 
 impl Borrow<str> for String {
+    #[inline]
     fn borrow(&self) -> &str {
         self
     }
@@ -678,6 +682,7 @@ impl ::std::ops::DerefMut for String {
 }
 
 impl Clone for String {
+    #[inline]
     fn clone(&self) -> Self {
         String {
             len: self.len(),
@@ -703,6 +708,7 @@ impl Clone for String {
 }
 
 impl std::hash::Hash for String {
+    #[inline]
     fn hash<H: std::hash::Hasher>(&self, hs: &mut H) {
         (**self).hash(hs)
     }
@@ -805,6 +811,7 @@ impl std::ops::IndexMut<std::ops::RangeToInclusive<usize>> for String {
 }
 
 impl From<std::string::String> for String {
+    #[inline]
     fn from(item: std::string::String) -> String {
         use std::mem;
         let mut v = item.into_bytes();
@@ -821,6 +828,7 @@ impl From<std::string::String> for String {
 }
 
 impl<'a> From<&'a str> for String {
+    #[inline]
     fn from(item: &str) -> String {
         String {
             len: item.len(),
@@ -858,6 +866,7 @@ impl<'a> From<&'a str> for String {
 }
 
 impl From<std::boxed::Box<str>> for String {
+    #[inline]
     fn from(item: std::boxed::Box<str>) -> String {
         item.into()
     }
@@ -866,6 +875,7 @@ impl From<std::boxed::Box<str>> for String {
 #[cfg(feature = "std")]
 impl std::net::ToSocketAddrs for String {
     type Iter = std::option::IntoIter<std::net::SocketAddr>;
+    #[inline]
     fn to_socket_addrs(&self) -> std::io::Result<Self::Iter> {
         (&self).to_socket_addrs()
     }
@@ -876,6 +886,7 @@ pub enum ParseError {}
 
 impl std::str::FromStr for String {
     type Err = ParseError;
+    #[inline]
     fn from_str(s: &str) -> Result<String, ParseError> {
         Ok(String::from(s))
     }
@@ -883,6 +894,7 @@ impl std::str::FromStr for String {
 
 impl<'a> std::ops::Add<&'a str> for String {
     type Output = String;
+    #[inline]
     fn add(mut self, other: &'a str) -> String {
         self.push_str(other);
         self
@@ -890,12 +902,14 @@ impl<'a> std::ops::Add<&'a str> for String {
 }
 
 impl<'a> std::ops::AddAssign<&'a str> for String {
+    #[inline]
     fn add_assign(&mut self, rhs: &'a str) {
         self.push_str(rhs);
     }
 }
 
 impl PartialEq for String {
+    #[inline]
     fn eq(&self, rhs: &Self) -> bool {
         self.as_str() == rhs.as_str()
     }
@@ -903,17 +917,20 @@ impl PartialEq for String {
 impl Eq for String { }
 
 impl PartialOrd for String {
+    #[inline]
     fn partial_cmp(&self, rhs: &Self) -> Option<::std::cmp::Ordering> {
         self.as_str().partial_cmp(rhs.as_str())
     }
 }
 impl Ord for String {
+    #[inline]
     fn cmp(&self, rhs: &Self) -> ::std::cmp::Ordering {
         self.as_str().cmp(rhs.as_str())
     }
 }
 
 impl std::fmt::Write for String {
+    #[inline]
     fn write_str(&mut self, s: &str) -> std::fmt::Result {
         Ok(self.push_str(s))
     }
@@ -924,12 +941,14 @@ impl std::fmt::Write for String {
 }
 
 impl std::fmt::Display for String {
+    #[inline]
     fn fmt(&self, fm: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         (self as &str).fmt(fm)
     }
 }
 
 impl Drop for String {
+    #[inline]
     fn drop(&mut self) {
         use std::alloc::{ dealloc, Layout };
         if let Inner::Heap { capacity, data } = self.inner {
