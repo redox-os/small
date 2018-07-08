@@ -755,6 +755,36 @@ impl<'a> From<&'a str> for String {
     }
 }
 
+impl From<std::boxed::Box<str>> for String {
+    fn from(item: std::boxed::Box<str>) -> String {
+        item.into()
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum ParseError {}
+
+impl std::str::FromStr for String {
+    type Err = ParseError;
+    fn from_str(s: &str) -> Result<String, ParseError> {
+        Ok(String::from(s))
+    }
+}
+
+impl<'a> std::ops::Add<&'a str> for String {
+    type Output = String;
+    fn add(mut self, other: &'a str) -> String {
+        self.push_str(other);
+        self
+    }
+}
+
+impl<'a> std::ops::AddAssign<&'a str> for String {
+    fn add_assign(&mut self, rhs: &'a str) {
+        self.push_str(rhs);
+    }
+}
+
 impl PartialEq for String {
     fn eq(&self, rhs: &Self) -> bool {
         self.as_str() == rhs.as_str()
