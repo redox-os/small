@@ -1,12 +1,14 @@
 # Use cargo to test the project
+image: "rust:latest"
+
 test:std:
-  image: "rust:latest"
   script:
   - rustc --version && cargo --version      # Print version info for debugging
   - cargo +stable test --all --verbose --features std # Test with `std` enabled
 
 test:nightly:
-  image: "rust:nightly"
   script:
+  - rustup toolchain add nightly
+  - rustup default nightly
   - rustc --version && cargo --version
   - cargo +nightly test --all --verbose --no-default-features
