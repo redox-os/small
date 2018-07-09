@@ -171,12 +171,44 @@ impl String {
     }
 
     /// The length of the string in bytes
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```
+    /// # extern crate small;
+    /// use small::String;
+    /// let s = String::from("Hello!");
+    ///
+    /// assert_eq!(6, s.len());
+    /// ```
     #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
 
-    /// The capacity of the string in bytes before reallocation
+    /// The number of bytes that can be stored before reallocation.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```
+    /// # extern crate small;
+    /// use small::String;
+    /// let s = String::from("Hello!");
+    ///
+    /// // This string is allocated on the stack, so its capacity is
+    /// // 23 (as that's the number of bytes we can hold on the stack)
+    /// assert_eq!(23, s.capacity());
+    ///
+    ///
+    /// let s = String::from("abcdefghijklmnopqrstuvwxyz");
+    ///
+    /// // This is a string allocated on the heap. It will have a capacity
+    /// // of 32 to begin with, and that will double every time it
+    /// // reallocates
+    /// assert_eq!(32, s.capacity());
+    /// ```
     #[inline]
     pub fn capacity(&self) -> usize {
         match self.inner {
@@ -284,6 +316,7 @@ impl String {
         ch
     }
 
+    #[inline]
     fn as_ptr(&self) -> *const u8 {
         match &self.inner {
             Inner::Stack { ref data } => {
@@ -295,6 +328,7 @@ impl String {
         }
     }
 
+    #[inline]
     fn as_mut_ptr(&mut self) -> *mut u8 {
         match &mut self.inner {
             Inner::Stack { ref mut data } => {
@@ -314,6 +348,7 @@ impl String {
     ///
     /// # Examples
     ///
+    /// Basic usage:
     /// ```
     /// # extern crate small;
     /// use small::String;
@@ -357,7 +392,20 @@ impl String {
         }
     }
 
-    /// The byte representation of the string
+    /// The borrowed byte representation of the string
+    ///
+    /// The opposite of this function is [`from_utf8`]
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```
+    /// # extern crate small;
+    /// use small::String;
+    /// let s = String::from_utf8(vec![64, 2]).unwrap();
+    ///
+    /// assert_eq!([64,2], s.as_bytes());
+    /// ```
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
         match self.inner {
@@ -373,6 +421,19 @@ impl String {
     }
 
     /// The mutable byte representation of the string
+    ///
+    /// The opposite of this function is [`from_utf8`]
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```
+    /// # extern crate small;
+    /// use small::String;
+    /// let mut s = String::from_utf8(vec![64, 2]).unwrap();
+    ///
+    /// assert_eq!(&mut [64,2], unsafe { s.as_mut_bytes() });
+    /// ```
     #[inline]
     pub unsafe fn as_mut_bytes(&mut self) -> &mut [u8] {
         let len = self.len();
@@ -386,13 +447,36 @@ impl String {
         }
     }
 
-    /// As a `str`
+    /// This string as a `str`
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```
+    /// # extern crate small;
+    /// use small::String;
+    /// let s = String::from("Hello!");
+    ///
+    /// assert_eq!("Hello!", s.as_str());
+    /// ```
     #[inline]
     pub fn as_str(&self) -> &str {
         self
     }
 
     /// Push a `str` onto the end of the string
+    ///
+    /// # Examples
+    /// 
+    /// Basic usage:
+    /// ```
+    /// # extern crate small;
+    /// use small::String;
+    /// let mut s = String::from("Hello");
+    /// s.push_str(" World!");
+    ///
+    /// assert_eq!("Hello World!", s.as_str());
+    /// ```
     #[inline]
     pub fn push_str(&mut self, item: &str) {
         // we match &mut self.inner so we don't copy the byte array
@@ -425,6 +509,20 @@ impl String {
     }
 
     /// Push a character onto the end of the string
+    ///
+    /// The opposite of this function is [`pop`]
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```
+    /// # extern crate small;
+    /// use small::String;
+    /// let mut s = String::from("Hello");
+    /// s.push('!');
+    ///
+    /// assert_eq!("Hello!", s.as_str())
+    /// ```
     #[inline]
     pub fn push(&mut self, item: char) {
         let ch_len = item.len_utf8();
@@ -459,7 +557,70 @@ impl String {
         self.len += ch_len;
     }
 
-    /// Converts a vector of bytes to a `String`
+    /// Converts a vector of bytes to a `String`.
+    ///
+    /// A string slice ([`&str`]) is made of bytes ([`u8`]), and a vector of bytes
+    /// ([`Vec<u8>`]) is made of bytes, so this function converts between the
+    /// two. Not all byte slices are valid `String`s, however: `String`
+    /// requires that it is valid UTF-8. `from_utf8()` checks to ensure that
+    /// the bytes are valid UTF-8, and then does the conversion.
+    ///
+    /// If you are sure that the byte slice is valid UTF-8, and you don't want
+    /// to incur the overhead of the validity check, there is an unsafe version
+    /// of this function, [`from_utf8_unchecked`], which has the same behavior
+    /// but skips the check.
+    ///
+    /// This method will take care to not copy the vector, for efficiency's
+    /// sake.
+    ///
+    /// If you need a [`&str`] instead of a `String`, consider
+    /// [`str::from_utf8`].
+    ///
+    /// The inverse of this method is [`as_bytes`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Err`] if the slice is not UTF-8 with a description as to why the
+    /// provided bytes are not UTF-8. The vector you moved in is also included.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// # extern crate small;
+    /// use small::String;
+    /// // some bytes, in a vector
+    /// let sparkle_heart = vec![240, 159, 146, 150];
+    ///
+    /// // We know these bytes are valid, so we'll use `unwrap()`.
+    /// let sparkle_heart = String::from_utf8(sparkle_heart).unwrap();
+    ///
+    /// assert_eq!("💖", sparkle_heart.as_str());
+    /// ```
+    ///
+    /// Incorrect bytes:
+    ///
+    /// ```
+    /// # extern crate small;
+    /// use small::String;
+    /// // some invalid bytes, in a vector
+    /// let sparkle_heart = vec![0, 159, 146, 150];
+    ///
+    /// assert!(String::from_utf8(sparkle_heart).is_err());
+    /// ```
+    ///
+    /// See the docs for [`FromUtf8Error`] for more details on what you can do
+    /// with this error.
+    ///
+    /// [`from_utf8_unchecked`]: struct.String.html#method.from_utf8_unchecked
+    /// [`&str`]: ../../std/primitive.str.html
+    /// [`u8`]: ../../std/primitive.u8.html
+    /// [`Vec<u8>`]: ../../std/vec/struct.Vec.html
+    /// [`str::from_utf8`]: ../../std/str/fn.from_utf8.html
+    /// [`as_bytes`]: struct.String.html#method.as_bytes
+    /// [`FromUtf8Error`]: struct.FromUtf8Error.html
+    /// [`Err`]: ../../stdresult/enum.Result.html#variant.Err
     #[inline]
     pub fn from_utf8(mut vec: std::vec::Vec<u8>) -> Result<String, FromUtf8Error> {
         use std::str;
@@ -586,6 +747,28 @@ impl String {
         self
     }
 
+    /// Shrinks the capacity of the string to be the same as the length of their
+    /// string. While allocated on the stack, this is a no-op
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```
+    /// # extern crate small;
+    /// use small::String;
+    ///
+    /// // On the stack
+    /// let mut s = String::from("Hello!");
+    /// assert_eq!(23, s.capacity());
+    /// s.shrink_to_fit();
+    /// assert_eq!(23, s.capacity());
+    ///
+    /// // On the heap
+    /// let mut s = String::from("abcdefghijklmnopqrstuvwxyz");
+    /// assert_eq!(32, s.capacity());
+    /// s.shrink_to_fit();
+    /// assert_eq!(26, s.capacity());
+    /// ```
     #[inline]
     pub fn shrink_to_fit(&mut self) {
         use std::alloc::{ dealloc, Layout };
@@ -614,6 +797,24 @@ impl String {
         }
     }
 
+    /// Clears the string. This performs no deallocation, so any string on the
+    /// heap will remain allocated on the heap.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```
+    /// # extern crate small;
+    /// use small::String;
+    ///
+    /// let mut s = String::from("Hello!");
+    /// assert_eq!(6, s.len());
+    /// assert_eq!("Hello!", s.as_str());
+    ///
+    /// s.clear();
+    /// assert_eq!(0, s.len());
+    /// assert_eq!("", s.as_str());
+    /// ```
     #[inline]
     pub fn clear(&mut self) {
         self.truncate(0);
@@ -1053,10 +1254,6 @@ impl FromUtf8Error {
 mod test {
     use super::*;
     #[test]
-    fn size() {
-        assert_eq!(::std::mem::size_of::<String>(), 32)
-    }
-    #[test]
     fn str_under_24() {
         assert_eq!("hello", String::from("hello").as_str())
     }
@@ -1140,7 +1337,7 @@ mod test {
         assert_eq!(a.into_bytes(), vec![97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122])
     }
     #[test]
-    fn clear_the_string() {
+    fn clear_heap() {
         let mut a = super::String::from("abcdefghijklmnopqrstuvwxyz");
         let original_capacity = a.capacity();
         a.clear();
