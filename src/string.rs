@@ -396,6 +396,8 @@ impl String {
     ///
     /// The opposite of this function is [`from_utf8`]
     ///
+    /// [`from_utf8`]: #method.from_utf8
+    ///
     /// # Examples
     ///
     /// Basic usage:
@@ -423,6 +425,8 @@ impl String {
     /// The mutable byte representation of the string
     ///
     /// The opposite of this function is [`from_utf8`]
+    ///
+    /// [`from_utf8`]: #method.from_utf8
     ///
     /// # Examples
     ///
@@ -511,6 +515,8 @@ impl String {
     /// Push a character onto the end of the string
     ///
     /// The opposite of this function is [`pop`]
+    ///
+    /// [`pop`]: #method.pop
     ///
     /// # Examples
     ///
