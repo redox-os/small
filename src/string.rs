@@ -464,7 +464,7 @@ impl String {
         let len = self.len();
         match &mut self.inner {
             Inner::Stack { ref mut data } => {
-                data
+                &mut data[..len]
             },
             Inner::Heap { capacity: _, data } => {
                 ::std::slice::from_raw_parts_mut(*data, len)
