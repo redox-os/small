@@ -1122,6 +1122,31 @@ impl PartialEq for String {
 }
 impl Eq for String { }
 
+impl PartialEq<String> for str {
+    #[inline]
+    fn eq(&self, rhs: &String) -> bool {
+        self == rhs.as_str()
+    }
+}
+impl PartialEq<str> for String {
+    #[inline]
+    fn eq(&self, rhs: &str) -> bool {
+        self.as_str() == rhs
+    }
+}
+impl<'a> PartialEq<&'a str> for String {
+    #[inline]
+    fn eq(&self, rhs: &&'a str) -> bool {
+        &self.as_str() == rhs
+    }
+}
+impl<'a> PartialEq<String> for &'a str {
+    #[inline]
+    fn eq(&self, rhs: &String) -> bool {
+        self == &rhs.as_str()
+    }
+}
+
 impl PartialOrd for String {
     #[inline]
     fn partial_cmp(&self, rhs: &Self) -> Option<::std::cmp::Ordering> {
