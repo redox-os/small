@@ -18,7 +18,28 @@ unsafe impl Send for Inner {}
 /// Inner is safe to sync between threads
 unsafe impl Sync for Inner {}
 
-/// A string which stores up to 24 bytes on the stack
+///
+/// A UTF-8 encoded, growable string which stores up to 23 bytes on the stack.
+///
+/// # Usage
+///
+/// `small::String` is an in-place replacement for [`std::string::String`].
+/// You can use `small::String` anywhere where you would want to use a normal
+/// String, and it will convert to and from [`&str`]. Refer to the documentation
+/// for [`std::string::String`] to learn more about the usage
+///
+/// You can also "import" a [`std::string::String`] using the [`from_string`]
+/// method, which will not perform any allocations or deallocations.
+///
+/// # Warning
+///
+/// Once `small::String` begins to allocate on the heap, it will never revert to
+/// using the stack for storage.
+///
+/// [`std::string::String`]: https://doc.rust-lang.org/nightly/std/string/struct.String.html
+/// [`&str`]: https://doc.rust-lang.org/nightly/std/primitive.str.html
+/// [`from_string`]: #method.from_string
+///
 #[derive(Debug)]
 pub struct String {
     len: usize,
@@ -147,7 +168,7 @@ impl String {
     ///
     /// Panics if `new_len` does not lie on a [`char`] boundary.
     ///
-    /// [`char`]: ../../std/primitive.char.html
+    /// [`char`]: https://doc.rust-lang.org/nightly/std/primitive.char.html
     ///
     /// # Examples
     ///
@@ -247,7 +268,7 @@ impl String {
     ///
     /// Returns [`None`] if this `String` is empty.
     ///
-    /// [`None`]: ../../std/option/enum.Option.html#variant.None
+    /// [`None`]: https://doc.rust-lang.org/nightly/std/option/enum.Option.html#variant.None
     ///
     /// # Examples
     ///
@@ -282,7 +303,7 @@ impl String {
     /// Panics if `idx` is larger than or equal to the `String`'s length,
     /// or if it does not lie on a [`char`] boundary.
     ///
-    /// [`char`]: ../../std/primitive.char.html
+    /// [`char`]: https://doc.rust-lang.org/nightly/std/primitive.char.html
     ///
     /// # Examples
     ///
@@ -451,7 +472,9 @@ impl String {
         }
     }
 
-    /// This string as a `str`
+    /// This string as a [`str`]
+    ///
+    /// [`str`]: https://doc.rust-lang.org/nightly/std/primitive.str.html
     ///
     /// # Examples
     ///
@@ -468,7 +491,9 @@ impl String {
         self
     }
 
-    /// Push a `str` onto the end of the string
+    /// Push a [`str`] onto the end of the string
+    ///
+    /// [`str`]: https://doc.rust-lang.org/nightly/std/primitive.str.html
     ///
     /// # Examples
     /// 
@@ -620,13 +645,13 @@ impl String {
     /// with this error.
     ///
     /// [`from_utf8_unchecked`]: struct.String.html#method.from_utf8_unchecked
-    /// [`&str`]: ../../std/primitive.str.html
-    /// [`u8`]: ../../std/primitive.u8.html
-    /// [`Vec<u8>`]: ../../std/vec/struct.Vec.html
-    /// [`str::from_utf8`]: ../../std/str/fn.from_utf8.html
+    /// [`&str`]: https://doc.rust-lang.org/nightly/std/primitive.str.html
+    /// [`u8`]: https://doc.rust-lang.org/nightly/std/primitive.u8.html
+    /// [`Vec<u8>`]: https://doc.rust-lang.org/nightly/std/vec/struct.Vec.html
+    /// [`str::from_utf8`]: https://doc.rust-lang.org/nightly/std/str/fn.from_utf8.html
     /// [`as_bytes`]: struct.String.html#method.as_bytes
     /// [`FromUtf8Error`]: struct.FromUtf8Error.html
-    /// [`Err`]: ../../stdresult/enum.Result.html#variant.Err
+    /// [`Err`]: https://doc.rust-lang.org/nightly/std/result/enum.Result.html#variant.Err
     #[inline]
     pub fn from_utf8(mut vec: std::vec::Vec<u8>) -> Result<String, FromUtf8Error> {
         use std::str;
