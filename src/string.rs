@@ -119,7 +119,7 @@ impl String {
     /// let s = "Hello!".into();
     /// let new_s = small::String::from_string(s);
     ///
-    /// assert_eq!(new_s.as_str(), "Hello!");
+    /// assert_eq!(new_s, "Hello!");
     /// ```
     #[inline]
     pub fn from_string(string: std::string::String) -> String {
@@ -160,7 +160,7 @@ impl String {
     ///
     /// s.truncate(2);
     ///
-    /// assert_eq!("he", s.as_str());
+    /// assert_eq!("he", s);
     /// ```
     #[inline]
     pub fn truncate(&mut self, new_len: usize) {
@@ -356,7 +356,7 @@ impl String {
     ///
     /// s.retain(|c| c != '_');
     ///
-    /// assert_eq!(s.as_str(), "foobar");
+    /// assert_eq!(s, "foobar");
     /// ```
     #[inline]
     pub fn retain<F>(&mut self, mut f: F)
@@ -457,7 +457,7 @@ impl String {
     /// use small::String;
     /// let s = String::from("Hello!");
     ///
-    /// assert_eq!("Hello!", s.as_str());
+    /// assert_eq!("Hello!", s);
     /// ```
     #[inline]
     pub fn as_str(&self) -> &str {
@@ -475,7 +475,7 @@ impl String {
     /// let mut s = String::from("Hello");
     /// s.push_str(" World!");
     ///
-    /// assert_eq!("Hello World!", s.as_str());
+    /// assert_eq!("Hello World!", s);
     /// ```
     #[inline]
     pub fn push_str(&mut self, item: &str) {
@@ -521,7 +521,7 @@ impl String {
     /// let mut s = String::from("Hello");
     /// s.push('!');
     ///
-    /// assert_eq!("Hello!", s.as_str())
+    /// assert_eq!("Hello!", s)
     /// ```
     #[inline]
     pub fn push(&mut self, item: char) {
@@ -596,7 +596,7 @@ impl String {
     /// // We know these bytes are valid, so we'll use `unwrap()`.
     /// let sparkle_heart = String::from_utf8(sparkle_heart).unwrap();
     ///
-    /// assert_eq!("💖", sparkle_heart.as_str());
+    /// assert_eq!("💖", sparkle_heart);
     /// ```
     ///
     /// Incorrect bytes:
@@ -672,7 +672,7 @@ impl String {
     ///     String::from_utf8_unchecked(sparkle_heart)
     /// };
     ///
-    /// assert_eq!("💖", sparkle_heart.as_str());
+    /// assert_eq!("💖", sparkle_heart);
     /// ```
     #[inline]
     pub unsafe fn from_utf8_unchecked(mut vec: std::vec::Vec<u8>) -> String {
@@ -809,11 +809,11 @@ impl String {
     ///
     /// let mut s = String::from("Hello!");
     /// assert_eq!(6, s.len());
-    /// assert_eq!("Hello!", s.as_str());
+    /// assert_eq!("Hello!", s);
     ///
     /// s.clear();
     /// assert_eq!(0, s.len());
-    /// assert_eq!("", s.as_str());
+    /// assert_eq!("", s);
     /// ```
     #[inline]
     pub fn clear(&mut self) {
@@ -1280,12 +1280,12 @@ mod test {
     use super::*;
     #[test]
     fn str_under_24() {
-        assert_eq!("hello", String::from("hello").as_str())
+        assert_eq!("hello", String::from("hello"))
     }
     #[test]
     fn str_over_24() {
         assert_eq!("abcdefghijklmnopqrstuvwxyz",
-                   String::from("abcdefghijklmnopqrstuvwxyz").as_str())
+                   String::from("abcdefghijklmnopqrstuvwxyz"))
     }
     #[test]
     fn sort() {
@@ -1313,43 +1313,43 @@ mod test {
     fn push_stack() {
         let mut a = super::String::from("hell");
         a.push('o');
-        assert_eq!("hello", a.as_str())
+        assert_eq!("hello", a)
     }
     #[test]
     fn push_stack_to_heap() {
         let mut a = super::String::from("abcdefghijklmnopqrstuvw");
         a.push('x');
-        assert_eq!("abcdefghijklmnopqrstuvwx", a.as_str())
+        assert_eq!("abcdefghijklmnopqrstuvwx", a)
     }
     #[test]
     fn push_heap() {
         let mut a = super::String::from("abcdefghijklmnopqrstuvwxy");
         a.push('z');
-        assert_eq!("abcdefghijklmnopqrstuvwxyz", a.as_str())
+        assert_eq!("abcdefghijklmnopqrstuvwxyz", a)
     }
     #[test]
     fn push_str_stack() {
         let mut a = super::String::from("h");
         a.push_str("ello");
-        assert_eq!("hello", a.as_str())
+        assert_eq!("hello", a)
     }
     #[test]
     fn push_str_heap() {
         let mut a = super::String::from("abcdefghijklmnopqrstuvwxyz");
         a.push_str(" hello");
-        assert_eq!("abcdefghijklmnopqrstuvwxyz hello", a.as_str())
+        assert_eq!("abcdefghijklmnopqrstuvwxyz hello", a)
     }
     #[test]
     fn push_str_stack_to_heap() {
         let mut a = super::String::from("abcdefghijkl");
         a.push_str("mnopqrstuvwxyz hello");
-        assert_eq!("abcdefghijklmnopqrstuvwxyz hello", a.as_str())
+        assert_eq!("abcdefghijklmnopqrstuvwxyz hello", a)
     }
     #[test]
     fn grow_heap() {
         let mut a = super::String::from("abcdefghijklmnopqrstuvwxyz");
         a.push_str(" hello thing");
-        assert_eq!("abcdefghijklmnopqrstuvwxyz hello thing", a.as_str())
+        assert_eq!("abcdefghijklmnopqrstuvwxyz hello thing", a)
     }
     #[test]
     fn into_bytes_stack() {
@@ -1366,7 +1366,7 @@ mod test {
         let mut a = super::String::from("abcdefghijklmnopqrstuvwxyz");
         let original_capacity = a.capacity();
         a.clear();
-        assert_eq!(a.as_str(), "");
+        assert_eq!(a, "");
         assert_eq!(a.capacity(), original_capacity);
     }
 }
