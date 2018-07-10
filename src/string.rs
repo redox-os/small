@@ -1,5 +1,6 @@
 use super::std;
 use std::borrow::Borrow;
+use std::hint::unreachable_unchecked;
 
 extern "Rust" {
     fn __rust_alloc(size: usize, align: usize) -> *mut u8;
@@ -533,7 +534,7 @@ impl String {
                     ::std::ptr::copy_nonoverlapping(item.as_ptr(), data.add(self.len), item.len())
                 }
             },
-            stack @ (_, _) => {
+            stack @ (Inner::Stack { .. } , _) => {
                 let d = if let Inner::Stack { ref data } = stack.0 {
                     let new_len = self.len + item.len();
                     unsafe {
@@ -546,7 +547,11 @@ impl String {
                         d
                     }
                 } else {
-                    unreachable!()
+                    //
+                    // We know from the match above that `stack.0` is definitely `Inner::Stack`.
+                    // Therefore we should never reach this location.
+                    //
+                    unsafe { unreachable_unchecked() }
                 };
                 *stack.0 = Inner::Heap {
                     capacity: 32,
@@ -593,21 +598,25 @@ impl String {
                     ::std::ptr::copy_nonoverlapping(chs.as_ptr(), data.add(self.len), ch_len)
                 }
             },
-            stack @ (_, _) => {
-                unsafe {
-                    let d = if let Inner::Stack { ref data } = stack.0 {
+            stack @ (Inner::Stack { .. }, _) => {
+                let d = if let Inner::Stack { ref data } = stack.0 {
+                    unsafe {
                         let d = __rust_alloc(32, 32);
                         ::std::ptr::copy_nonoverlapping(data.as_ptr(), d, self.len);
                         ::std::ptr::copy_nonoverlapping(chs.as_ptr(), d.add(self.len), ch_len);
                         d
-                    } else {
-                        unreachable!()
-                    };
-                    *stack.0 = Inner::Heap {
-                        capacity: 32,
-                        data: d
-                    };
-                }
+                    }
+                } else {
+                    //
+                    // We know from the match above that `stack.0` is definitely `Inner::Stack`.
+                    // Therefore we should never reach this location.
+                    //
+                    unsafe { unreachable_unchecked() }
+                };
+                *stack.0 = Inner::Heap {
+                    capacity: 32,
+                    data: d
+                };
             }
         }
         self.len += ch_len;
@@ -850,24 +859,28 @@ impl String {
                     Self::grow(capacity, data, new_len);
                 }
             },
-            stack @ (_, _) => {
-                unsafe {
-                    let new_len = match (self.len + min).checked_next_power_of_two() {
-                            Some(x) => x,
-                            None => self.len + min
-                        };
-                    let d = if let Inner::Stack { ref data } = stack.0 {
+            stack @ (Inner::Stack { .. }, _) => {
+                let new_len = match (self.len + min).checked_next_power_of_two() {
+                    Some(x) => x,
+                    None => self.len + min
+                };
+                let d = if let Inner::Stack { ref data } = stack.0 {
+                    unsafe {
                         let d = __rust_alloc(new_len, 32);
                         ::std::ptr::copy_nonoverlapping(data.as_ptr(), d, self.len);
                         d
-                    } else {
-                        unreachable!()
-                    };
-                    *stack.0 = Inner::Heap {
-                        capacity: new_len,
-                        data: d
-                    };
-                }
+                    }
+                } else {
+                    //
+                    // We know from the match above that `stack.0` is definitely `Inner::Stack`.
+                    // Therefore we should never reach this location.
+                    //
+                    unsafe { unreachable_unchecked() }
+                };
+                *stack.0 = Inner::Heap {
+                    capacity: new_len,
+                    data: d
+                };
             }
         }
     }
@@ -1332,7 +1345,7 @@ impl std::fmt::Display for String {
 impl Drop for String {
     #[inline]
     fn drop(&mut self) {
-        if let Inner::Heap { capacity, ref data } = &self.inner {
+        if let Inner::Heap { capacity, data } = &self.inner {
             unsafe {
                 __rust_dealloc(*data, *capacity, 32);
             }
