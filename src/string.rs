@@ -837,6 +837,42 @@ impl String {
     }
 
     #[inline]
+    pub fn reserve(&mut self, min: usize) {
+        // we match &mut self.inner so we don't copy the byte array
+        match (&mut self.inner, self.len + min) {
+            (Inner::Stack { data: _ }, 0...23) => {},
+            (Inner::Heap { ref mut capacity, ref mut data }, x) => {
+                if x > *capacity {
+                    let new_len = match (self.len + min).checked_next_power_of_two() {
+                        Some(x) => x,
+                        None => self.len + min
+                    };
+                    Self::grow(capacity, data, new_len);
+                }
+            },
+            stack @ (_, _) => {
+                unsafe {
+                    let new_len = match (self.len + min).checked_next_power_of_two() {
+                            Some(x) => x,
+                            None => self.len + min
+                        };
+                    let d = if let Inner::Stack { ref data } = stack.0 {
+                        let d = __rust_alloc(new_len, 32);
+                        ::std::ptr::copy_nonoverlapping(data.as_ptr(), d, self.len);
+                        d
+                    } else {
+                        unreachable!()
+                    };
+                    *stack.0 = Inner::Heap {
+                        capacity: new_len,
+                        data: d
+                    };
+                }
+            }
+        }
+    }
+
+    #[inline]
     fn grow(capacity: &mut usize, data: &mut *mut u8, new_cap: usize) {
         unsafe {
             let d = __rust_realloc(*data, *capacity, 32, new_cap);
