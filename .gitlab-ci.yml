@@ -16,4 +16,4 @@ test:no_std:
 test:stable:
   script:
   - rustc --version && cargo --version      # Print version info for debugging
-  - cargo +nightly test --all --verbose --features std # Test with `std` enabled
+  - cargo test --all --verbose --features std # Test with `std` enabled
