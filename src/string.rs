@@ -1233,6 +1233,38 @@ impl Extend<String> for String {
     }
 }
 
+impl std::iter::FromIterator<char> for String {
+    fn from_iter<I: IntoIterator<Item = char>>(iter: I) -> String {
+        let mut buf = String::new();
+        buf.extend(iter);
+        buf
+    }
+}
+
+impl<'a> std::iter::FromIterator<&'a char> for String {
+    fn from_iter<I: IntoIterator<Item = &'a char>>(iter: I) -> String {
+        let mut buf = String::new();
+        buf.extend(iter);
+        buf
+    }
+}
+
+impl<'a> std::iter::FromIterator<&'a str> for String {
+    fn from_iter<I: IntoIterator<Item = &'a str>>(iter: I) -> String {
+        let mut buf = String::new();
+        buf.extend(iter);
+        buf
+    }
+}
+
+impl std::iter::FromIterator<String> for String {
+    fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> String {
+        let mut buf = String::new();
+        buf.extend(iter);
+        buf
+    }
+}
+
 impl PartialEq for String {
     #[inline]
     fn eq(&self, rhs: &Self) -> bool {
