@@ -594,10 +594,9 @@ impl String {
                 }
             },
             stack @ (_, _) => {
-                // use std::alloc::{ alloc, Layout };
                 unsafe {
                     let d = if let Inner::Stack { ref data } = stack.0 {
-                        let d = __rust_alloc(32, 32);// alloc(Layout::from_size_align_unchecked(32, 32));
+                        let d = __rust_alloc(32, 32);
                         ::std::ptr::copy_nonoverlapping(data.as_ptr(), d, self.len);
                         ::std::ptr::copy_nonoverlapping(chs.as_ptr(), d.add(self.len), ch_len);
                         d
