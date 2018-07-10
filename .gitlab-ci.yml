@@ -12,3 +12,8 @@ test:no_std:
   - rustup toolchain add nightly
   - rustc --version && cargo --version
   - cargo +nightly test --all --verbose --no-default-features
+
+test:stable:
+  script:
+  - rustc --version && cargo --version      # Print version info for debugging
+  - cargo +nightly test --all --verbose --features std # Test with `std` enabled
