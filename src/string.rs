@@ -1,5 +1,22 @@
 use super::std;
 use std::borrow::Borrow;
+use std::hint::unreachable_unchecked;
+
+/// These are internal rust allocation functions. They're not supposed to be
+/// exposed by the compiler, but they do exist as symbols so we can use them
+/// to control our allocations without having to go through a [`Box`] or a
+/// [`Vec`] as you would otherwise.
+///
+/// [`Box`]: https://doc.rust-lang.org/std/boxed/struct.Box.html
+/// [`Vec`]: https://doc.rust-lang.org/std/vec/struct.Vec.html
+extern "Rust" {
+    fn __rust_alloc(size: usize, align: usize) -> *mut u8;
+    fn __rust_dealloc(ptr: *mut u8, size: usize, align: usize);
+    fn __rust_realloc(ptr: *mut u8,
+                      old_size: usize,
+                      align: usize,
+                      new_size: usize) -> *mut u8;
+}
 
 #[derive(Debug, Clone, Copy)]
 enum Inner {
@@ -115,13 +132,12 @@ impl String {
     /// ```
     #[inline]
     pub fn with_capacity(capacity: usize) -> String {
-        use std::alloc::{ alloc, Layout };
         String {
             len: 0,
             inner: Inner::Heap {
                 capacity,
                 data: unsafe {
-                    alloc(Layout::from_size_align_unchecked(capacity, 32))
+                    __rust_alloc(capacity, 32)
                 }
             }
         }
@@ -513,25 +529,41 @@ impl String {
             (Inner::Stack { data }, 0...23) => {
                 data[self.len..][..item.len()].copy_from_slice(item.as_bytes());
             },
-            (Inner::Heap { capacity, ref data }, x) => {
+            (Inner::Heap { ref mut capacity, ref mut data }, x) => {
                 if x > *capacity {
-                    self.grow();
+                    let new_len = match (self.len + item.len()).checked_next_power_of_two() {
+                        Some(x) => x,
+                        None => self.len + item.len()
+                    };
+                    Self::grow(capacity, data, new_len);
                 }
                 unsafe {
                     ::std::ptr::copy_nonoverlapping(item.as_ptr(), data.add(self.len), item.len())
                 }
             },
-            (Inner::Stack { ref data }, _) => {
-                use std::alloc::{ alloc, Layout };
-                unsafe {
-                    let d = alloc(Layout::from_size_align_unchecked(32, 32));
-                    ::std::ptr::copy_nonoverlapping(data.as_ptr(), d, self.len);
-                    ::std::ptr::copy_nonoverlapping(item.as_ptr(), d.add(self.len), item.len());
-                    self.inner = Inner::Heap {
-                        capacity: 32,
-                        data: d
-                    };
-                }
+            stack @ (Inner::Stack { .. } , _) => {
+                let d = if let Inner::Stack { ref data } = stack.0 {
+                    let new_len = self.len + item.len();
+                    unsafe {
+                        let d = __rust_alloc(match new_len.checked_next_power_of_two() {
+                            Some(x) => x,
+                            None => new_len
+                        }, 32);
+                        ::std::ptr::copy_nonoverlapping(data.as_ptr(), d, self.len);
+                        ::std::ptr::copy_nonoverlapping(item.as_ptr(), d.add(self.len), item.len());
+                        d
+                    }
+                } else {
+                    //
+                    // We know from the match above that `stack.0` is definitely `Inner::Stack`.
+                    // Therefore we should never reach this location.
+                    //
+                    unsafe { unreachable_unchecked() }
+                };
+                *stack.0 = Inner::Heap {
+                    capacity: 32,
+                    data: d
+                };
             }
         }
         self.len += item.len();
@@ -564,25 +596,34 @@ impl String {
             (Inner::Stack { data }, 0...23) => {
                 data[self.len..][..ch_len].copy_from_slice(&chs[..ch_len]);
             },
-            (Inner::Heap { capacity, ref data }, x) => {
+            (Inner::Heap { ref mut capacity, ref mut data }, x) => {
                 if x > *capacity {
-                    self.grow();
+                    let new_len = *capacity*2;
+                    Self::grow(capacity, data, new_len);
                 }
                 unsafe {
                     ::std::ptr::copy_nonoverlapping(chs.as_ptr(), data.add(self.len), ch_len)
                 }
             },
-            (Inner::Stack { ref data }, _) => {
-                use std::alloc::{ alloc, Layout };
-                unsafe {
-                    let d = alloc(Layout::from_size_align_unchecked(32, 32));
-                    ::std::ptr::copy_nonoverlapping(data.as_ptr(), d, self.len);
-                    ::std::ptr::copy_nonoverlapping(chs.as_ptr(), d.add(self.len), ch_len);
-                    self.inner = Inner::Heap {
-                        capacity: 32,
-                        data: d
-                    };
-                }
+            stack @ (Inner::Stack { .. }, _) => {
+                let d = if let Inner::Stack { ref data } = stack.0 {
+                    unsafe {
+                        let d = __rust_alloc(32, 32);
+                        ::std::ptr::copy_nonoverlapping(data.as_ptr(), d, self.len);
+                        ::std::ptr::copy_nonoverlapping(chs.as_ptr(), d.add(self.len), ch_len);
+                        d
+                    }
+                } else {
+                    //
+                    // We know from the match above that `stack.0` is definitely `Inner::Stack`.
+                    // Therefore we should never reach this location.
+                    //
+                    unsafe { unreachable_unchecked() }
+                };
+                *stack.0 = Inner::Heap {
+                    capacity: 32,
+                    data: d
+                };
             }
         }
         self.len += ch_len;
@@ -802,29 +843,109 @@ impl String {
     /// ```
     #[inline]
     pub fn shrink_to_fit(&mut self) {
-        use std::alloc::{ dealloc, Layout };
         let len = self.len();
         if let Inner::Heap { ref mut capacity, ref mut data } = &mut self.inner {
             unsafe {
-                dealloc(data.add(len), Layout::from_size_align_unchecked(*capacity - len, 32))
+                *data = __rust_realloc(*data, *capacity, 32, len);
             }
             *capacity = len;
         }
     }
 
+    /// Ensures that this `String`'s capacity is at least `additional` bytes
+    /// larger than its length.
+    ///
+    /// The capacity may be increased by more than `additional` bytes if it
+    /// chooses, to prevent frequent reallocations.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new capacity overflows [`usize`].
+    ///
+    /// [`usize`]: ../../std/primitive.usize.html
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// let mut s = String::new();
+    ///
+    /// s.reserve(10);
+    ///
+    /// assert!(s.capacity() >= 10);
+    /// ```
+    ///
+    /// This may not actually increase the capacity:
+    ///
+    /// ```
+    /// # extern crate small;
+    /// use small::String;
+    ///
+    /// // Lets create a string on the heap
+    /// let mut s = String::with_capacity(10);
+    /// s.push('a');
+    /// s.push('b');
+    ///
+    /// // s now has a length of 2 and a capacity of 10
+    /// assert_eq!(2, s.len());
+    /// assert_eq!(10, s.capacity());
+    ///
+    /// // Since we already have an extra 8 capacity, calling this...
+    /// s.reserve(8);
+    ///
+    /// // ... doesn't actually increase.
+    /// assert_eq!(10, s.capacity());
+    /// ```
     #[inline]
-    fn grow(&mut self) {
-        use std::alloc::{ handle_alloc_error, realloc, Layout };
-        if let Inner::Heap { ref mut capacity, ref mut data } = &mut self.inner {
-            unsafe {
-                let layout = Layout::from_size_align_unchecked(*capacity, 32);
-                let d = realloc(*data, layout, *capacity*2);
-                if d.is_null() {
-                    handle_alloc_error(layout);
+    pub fn reserve(&mut self, additional: usize) {
+        // we match &mut self.inner so we don't copy the byte array
+        match (&mut self.inner, self.len + additional) {
+            (Inner::Stack { data: _ }, 0...23) => {},
+            (Inner::Heap { ref mut capacity, ref mut data }, x) => {
+                if x > *capacity {
+                    let new_len = match (self.len + additional).checked_next_power_of_two() {
+                        Some(x) => x,
+                        None => self.len + additional
+                    };
+                    Self::grow(capacity, data, new_len);
                 }
-                *data = d;
-                *capacity *= 2;
+            },
+            stack @ (Inner::Stack { .. }, _) => {
+                let new_len = match (self.len + additional).checked_next_power_of_two() {
+                    Some(x) => x,
+                    None => self.len + additional
+                };
+                let d = if let Inner::Stack { ref data } = stack.0 {
+                    unsafe {
+                        let d = __rust_alloc(new_len, 32);
+                        ::std::ptr::copy_nonoverlapping(data.as_ptr(), d, self.len);
+                        d
+                    }
+                } else {
+                    //
+                    // We know from the match above that `stack.0` is definitely `Inner::Stack`.
+                    // Therefore we should never reach this location.
+                    //
+                    unsafe { unreachable_unchecked() }
+                };
+                *stack.0 = Inner::Heap {
+                    capacity: new_len,
+                    data: d
+                };
             }
+        }
+    }
+
+    #[inline]
+    fn grow(capacity: &mut usize, data: &mut *mut u8, new_cap: usize) {
+        unsafe {
+            let d = __rust_realloc(*data, *capacity, 32, new_cap);
+            if d.is_null() {
+                panic!("OOM")
+            }
+            *data = d;
+            *capacity *= 2;
         }
     }
 
@@ -926,13 +1047,12 @@ impl Clone for String {
             inner: match self.inner {
                 stack @ Inner::Stack { .. } => stack,
                 Inner::Heap { capacity, data } => {
-                    use std::alloc::{ alloc, Layout };
                     use std::ptr;
                     Inner::Heap {
                         capacity,
                         data: {
                             unsafe {
-                                let d = alloc(Layout::from_size_align_unchecked(capacity, 32));
+                                let d = __rust_alloc(capacity, 32);
                                 ptr::copy_nonoverlapping(data, d, self.len());
                                 d
                             }
@@ -1080,7 +1200,6 @@ impl<'a> From<&'a str> for String {
                     }
                 },
                 len @ _ => {
-                    use std::alloc::{ alloc, Layout };
                     use std::ptr;
                     let capacity = match len.checked_next_power_of_two() {
                         Some(x) => x,
@@ -1090,7 +1209,7 @@ impl<'a> From<&'a str> for String {
                         capacity,
                         data: {
                             unsafe {
-                                let d = alloc(Layout::from_size_align_unchecked(capacity, 32));
+                                let d = __rust_alloc(capacity, 32);
                                 ptr::copy_nonoverlapping(item.as_ptr(), d, len);
                                 d
                             }
@@ -1142,6 +1261,72 @@ impl<'a> std::ops::AddAssign<&'a str> for String {
     #[inline]
     fn add_assign(&mut self, rhs: &'a str) {
         self.push_str(rhs);
+    }
+}
+
+
+impl Extend<char> for String {
+    fn extend<I: IntoIterator<Item = char>>(&mut self, iter: I) {
+        let iterator = iter.into_iter();
+        let (lower_bound, _) = iterator.size_hint();
+        self.reserve(lower_bound);
+        for ch in iterator {
+            self.push(ch)
+        }
+    }
+}
+
+impl<'a> Extend<&'a char> for String {
+    fn extend<I: IntoIterator<Item = &'a char>>(&mut self, iter: I) {
+        self.extend(iter.into_iter().cloned());
+    }
+}
+
+impl<'a> Extend<&'a str> for String {
+    fn extend<I: IntoIterator<Item = &'a str>>(&mut self, iter: I) {
+        for s in iter {
+            self.push_str(s)
+        }
+    }
+}
+
+impl Extend<String> for String {
+    fn extend<I: IntoIterator<Item = String>>(&mut self, iter: I) {
+        for s in iter {
+            self.push_str(&s)
+        }
+    }
+}
+
+impl std::iter::FromIterator<char> for String {
+    fn from_iter<I: IntoIterator<Item = char>>(iter: I) -> String {
+        let mut buf = String::new();
+        buf.extend(iter);
+        buf
+    }
+}
+
+impl<'a> std::iter::FromIterator<&'a char> for String {
+    fn from_iter<I: IntoIterator<Item = &'a char>>(iter: I) -> String {
+        let mut buf = String::new();
+        buf.extend(iter);
+        buf
+    }
+}
+
+impl<'a> std::iter::FromIterator<&'a str> for String {
+    fn from_iter<I: IntoIterator<Item = &'a str>>(iter: I) -> String {
+        let mut buf = String::new();
+        buf.extend(iter);
+        buf
+    }
+}
+
+impl std::iter::FromIterator<String> for String {
+    fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> String {
+        let mut buf = String::new();
+        buf.extend(iter);
+        buf
     }
 }
 
@@ -1212,10 +1397,9 @@ impl std::fmt::Display for String {
 impl Drop for String {
     #[inline]
     fn drop(&mut self) {
-        use std::alloc::{ dealloc, Layout };
-        if let Inner::Heap { capacity, data } = self.inner {
+        if let Inner::Heap { capacity, data } = &self.inner {
             unsafe {
-                dealloc(data, Layout::from_size_align_unchecked(capacity, 32))
+                __rust_dealloc(*data, *capacity, 32);
             }
         }
     }
