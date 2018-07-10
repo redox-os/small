@@ -1199,6 +1199,40 @@ impl<'a> std::ops::AddAssign<&'a str> for String {
     }
 }
 
+
+impl Extend<char> for String {
+    fn extend<I: IntoIterator<Item = char>>(&mut self, iter: I) {
+        let iterator = iter.into_iter();
+        let (lower_bound, _) = iterator.size_hint();
+        self.reserve(lower_bound);
+        for ch in iterator {
+            self.push(ch)
+        }
+    }
+}
+
+impl<'a> Extend<&'a char> for String {
+    fn extend<I: IntoIterator<Item = &'a char>>(&mut self, iter: I) {
+        self.extend(iter.into_iter().cloned());
+    }
+}
+
+impl<'a> Extend<&'a str> for String {
+    fn extend<I: IntoIterator<Item = &'a str>>(&mut self, iter: I) {
+        for s in iter {
+            self.push_str(s)
+        }
+    }
+}
+
+impl Extend<String> for String {
+    fn extend<I: IntoIterator<Item = String>>(&mut self, iter: I) {
+        for s in iter {
+            self.push_str(&s)
+        }
+    }
+}
+
 impl PartialEq for String {
     #[inline]
     fn eq(&self, rhs: &Self) -> bool {
