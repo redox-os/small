@@ -845,24 +845,69 @@ impl String {
         }
     }
 
+    /// Ensures that this `String`'s capacity is at least `additional` bytes
+    /// larger than its length.
+    ///
+    /// The capacity may be increased by more than `additional` bytes if it
+    /// chooses, to prevent frequent reallocations.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new capacity overflows [`usize`].
+    ///
+    /// [`usize`]: ../../std/primitive.usize.html
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// let mut s = String::new();
+    ///
+    /// s.reserve(10);
+    ///
+    /// assert!(s.capacity() >= 10);
+    /// ```
+    ///
+    /// This may not actually increase the capacity:
+    ///
+    /// ```
+    /// # extern crate small;
+    /// use small::String;
+    ///
+    /// // Lets create a string on the heap
+    /// let mut s = String::with_capacity(10);
+    /// s.push('a');
+    /// s.push('b');
+    ///
+    /// // s now has a length of 2 and a capacity of 10
+    /// assert_eq!(2, s.len());
+    /// assert_eq!(10, s.capacity());
+    ///
+    /// // Since we already have an extra 8 capacity, calling this...
+    /// s.reserve(8);
+    ///
+    /// // ... doesn't actually increase.
+    /// assert_eq!(10, s.capacity());
+    /// ```
     #[inline]
-    pub fn reserve(&mut self, min: usize) {
+    pub fn reserve(&mut self, additional: usize) {
         // we match &mut self.inner so we don't copy the byte array
-        match (&mut self.inner, self.len + min) {
+        match (&mut self.inner, self.len + additional) {
             (Inner::Stack { data: _ }, 0...23) => {},
             (Inner::Heap { ref mut capacity, ref mut data }, x) => {
                 if x > *capacity {
-                    let new_len = match (self.len + min).checked_next_power_of_two() {
+                    let new_len = match (self.len + additional).checked_next_power_of_two() {
                         Some(x) => x,
-                        None => self.len + min
+                        None => self.len + additional
                     };
                     Self::grow(capacity, data, new_len);
                 }
             },
             stack @ (Inner::Stack { .. }, _) => {
-                let new_len = match (self.len + min).checked_next_power_of_two() {
+                let new_len = match (self.len + additional).checked_next_power_of_two() {
                     Some(x) => x,
-                    None => self.len + min
+                    None => self.len + additional
                 };
                 let d = if let Inner::Stack { ref data } = stack.0 {
                     unsafe {
