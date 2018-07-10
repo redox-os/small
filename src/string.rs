@@ -2,6 +2,13 @@ use super::std;
 use std::borrow::Borrow;
 use std::hint::unreachable_unchecked;
 
+/// These are internal rust allocation functions. They're not supposed to be
+/// exposed by the compiler, but they do exist as symbols so we can use them
+/// to control our allocations without having to go through a [`Box`] or a
+/// [`Vec`] as you would otherwise.
+///
+/// [`Box`]: https://doc.rust-lang.org/std/boxed/struct.Box.html
+/// [`Vec`]: https://doc.rust-lang.org/std/vec/struct.Vec.html
 extern "Rust" {
     fn __rust_alloc(size: usize, align: usize) -> *mut u8;
     fn __rust_dealloc(ptr: *mut u8, size: usize, align: usize);
