@@ -1044,9 +1044,21 @@ impl Clone for String {
     fn clone(&self) -> Self {
         String {
             len: self.len(),
-            inner: match self.inner {
-                stack @ Inner::Stack { .. } => stack,
-                Inner::Heap { capacity, data } => {
+            inner: match (self.inner, self.len) {
+                stack @ (Inner::Stack { .. }, _) => stack.0,
+                (Inner::Heap { data, .. }, 0...23) => {
+                    Inner::Stack {
+                        data: {
+                            let mut d = [0u8;23];
+                            d[..self.len].copy_from_slice(
+                                unsafe {
+                                    ::std::slice::from_raw_parts(data, self.len)
+                                });
+                            d
+                        }
+                    }
+                },
+                (Inner::Heap { capacity, data }, _) => {
                     use std::ptr;
                     Inner::Heap {
                         capacity,
@@ -1058,7 +1070,7 @@ impl Clone for String {
                             }
                         }
                     }
-                }
+               }
             }
         }
     }
@@ -1398,8 +1410,10 @@ impl Drop for String {
     #[inline]
     fn drop(&mut self) {
         if let Inner::Heap { capacity, data } = &self.inner {
-            unsafe {
-                __rust_dealloc(*data, *capacity, 32);
+            if *capacity > 0 {
+                unsafe {
+                    __rust_dealloc(*data, *capacity, 32);
+                }
             }
         }
     }
