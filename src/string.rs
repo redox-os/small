@@ -132,6 +132,7 @@ impl String {
     /// ```
     #[inline]
     pub fn with_capacity(capacity: usize) -> String {
+        assert!(capacity != 0);
         String {
             len: 0,
             inner: Inner::Heap {
