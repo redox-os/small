@@ -138,7 +138,7 @@ impl String {
             inner: Inner::Heap {
                 capacity,
                 data: unsafe {
-                    __rust_alloc(capacity, 32)
+                    __rust_alloc(capacity, 4)
                 }
             }
         }
@@ -549,7 +549,7 @@ impl String {
                         let d = __rust_alloc(match new_len.checked_next_power_of_two() {
                             Some(x) => x,
                             None => new_len
-                        }, 32);
+                        }, 4);
                         ::std::ptr::copy_nonoverlapping(data.as_ptr(), d, self.len);
                         ::std::ptr::copy_nonoverlapping(item.as_ptr(), d.add(self.len), item.len());
                         d
@@ -609,7 +609,7 @@ impl String {
             stack @ (Inner::Stack { .. }, _) => {
                 let d = if let Inner::Stack { ref data } = stack.0 {
                     unsafe {
-                        let d = __rust_alloc(32, 32);
+                        let d = __rust_alloc(32, 4);
                         ::std::ptr::copy_nonoverlapping(data.as_ptr(), d, self.len);
                         ::std::ptr::copy_nonoverlapping(chs.as_ptr(), d.add(self.len), ch_len);
                         d
@@ -847,7 +847,7 @@ impl String {
         let len = self.len();
         if let Inner::Heap { ref mut capacity, ref mut data } = &mut self.inner {
             unsafe {
-                *data = __rust_realloc(*data, *capacity, 32, len);
+                *data = __rust_realloc(*data, *capacity, 4, len);
             }
             *capacity = len;
         }
@@ -919,7 +919,7 @@ impl String {
                 };
                 let d = if let Inner::Stack { ref data } = stack.0 {
                     unsafe {
-                        let d = __rust_alloc(new_len, 32);
+                        let d = __rust_alloc(new_len, 4);
                         ::std::ptr::copy_nonoverlapping(data.as_ptr(), d, self.len);
                         d
                     }
@@ -941,7 +941,7 @@ impl String {
     #[inline]
     fn grow(capacity: &mut usize, data: &mut *mut u8, new_cap: usize) {
         unsafe {
-            let d = __rust_realloc(*data, *capacity, 32, new_cap);
+            let d = __rust_realloc(*data, *capacity, 4, new_cap);
             if d.is_null() {
                 panic!("OOM")
             }
@@ -1065,7 +1065,7 @@ impl Clone for String {
                         capacity,
                         data: {
                             unsafe {
-                                let d = __rust_alloc(capacity, 32);
+                                let d = __rust_alloc(capacity, 4);
                                 ptr::copy_nonoverlapping(data, d, self.len());
                                 d
                             }
@@ -1222,7 +1222,7 @@ impl<'a> From<&'a str> for String {
                         capacity,
                         data: {
                             unsafe {
-                                let d = __rust_alloc(capacity, 32);
+                                let d = __rust_alloc(capacity, 4);
                                 ptr::copy_nonoverlapping(item.as_ptr(), d, len);
                                 d
                             }
@@ -1413,7 +1413,7 @@ impl Drop for String {
         if let Inner::Heap { capacity, data } = &self.inner {
             if *capacity > 0 {
                 unsafe {
-                    __rust_dealloc(*data, *capacity, 32);
+                    __rust_dealloc(*data, *capacity, 4);
                 }
             }
         }
