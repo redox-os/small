@@ -513,7 +513,7 @@ impl String {
     /// [`str`]: https://doc.rust-lang.org/nightly/std/primitive.str.html
     ///
     /// # Examples
-    /// 
+    ///
     /// Basic usage:
     /// ```
     /// # extern crate small;
@@ -1207,7 +1207,9 @@ impl<'a> From<&'a str> for String {
                     Inner::Stack {
                         data: {
                             let mut d = [0u8;23];
-                            d[..item.len()].copy_from_slice(item.as_bytes());
+                            if !item.is_empty() {
+                                d[..item.len()].copy_from_slice(item.as_bytes());
+                            }
                             d
                         }
                     }
