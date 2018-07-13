@@ -1,22 +1,6 @@
-use super::std;
+use super::{alloc, std};
 use std::borrow::Borrow;
 use std::hint::unreachable_unchecked;
-
-/// These are internal rust allocation functions. They're not supposed to be
-/// exposed by the compiler, but they do exist as symbols so we can use them
-/// to control our allocations without having to go through a [`Box`] or a
-/// [`Vec`] as you would otherwise.
-///
-/// [`Box`]: https://doc.rust-lang.org/std/boxed/struct.Box.html
-/// [`Vec`]: https://doc.rust-lang.org/std/vec/struct.Vec.html
-extern "Rust" {
-    fn __rust_alloc(size: usize, align: usize) -> *mut u8;
-    fn __rust_dealloc(ptr: *mut u8, size: usize, align: usize);
-    fn __rust_realloc(ptr: *mut u8,
-                      old_size: usize,
-                      align: usize,
-                      new_size: usize) -> *mut u8;
-}
 
 #[derive(Debug, Clone, Copy)]
 enum Inner {
@@ -137,9 +121,7 @@ impl String {
             len: 0,
             inner: Inner::Heap {
                 capacity,
-                data: unsafe {
-                    __rust_alloc(capacity, 1)
-                }
+                data: alloc::alloc(capacity)
             }
         }
     }
@@ -545,15 +527,15 @@ impl String {
             stack @ (Inner::Stack { .. } , _) => {
                 let d = if let Inner::Stack { ref data } = stack.0 {
                     let new_len = self.len + item.len();
+                    let d = alloc::alloc(match new_len.checked_next_power_of_two() {
+                        Some(x) => x,
+                        None => new_len
+                    });
                     unsafe {
-                        let d = __rust_alloc(match new_len.checked_next_power_of_two() {
-                            Some(x) => x,
-                            None => new_len
-                        }, 1);
                         ::std::ptr::copy_nonoverlapping(data.as_ptr(), d, self.len);
                         ::std::ptr::copy_nonoverlapping(item.as_ptr(), d.add(self.len), item.len());
-                        d
                     }
+                    d
                 } else {
                     //
                     // We know from the match above that `stack.0` is definitely `Inner::Stack`.
@@ -608,12 +590,12 @@ impl String {
             },
             stack @ (Inner::Stack { .. }, _) => {
                 let d = if let Inner::Stack { ref data } = stack.0 {
+                    let d = alloc::alloc(32);
                     unsafe {
-                        let d = __rust_alloc(32, 1);
                         ::std::ptr::copy_nonoverlapping(data.as_ptr(), d, self.len);
                         ::std::ptr::copy_nonoverlapping(chs.as_ptr(), d.add(self.len), ch_len);
-                        d
                     }
+                    d
                 } else {
                     //
                     // We know from the match above that `stack.0` is definitely `Inner::Stack`.
@@ -846,9 +828,7 @@ impl String {
     pub fn shrink_to_fit(&mut self) {
         let len = self.len();
         if let Inner::Heap { ref mut capacity, ref mut data } = &mut self.inner {
-            unsafe {
-                *data = __rust_realloc(*data, *capacity, 1, len);
-            }
+            *data = unsafe { alloc::realloc(*data, *capacity, len) };
             *capacity = len;
         }
     }
@@ -918,11 +898,11 @@ impl String {
                     None => self.len + additional
                 };
                 let d = if let Inner::Stack { ref data } = stack.0 {
+                    let d = alloc::alloc(new_len);
                     unsafe {
-                        let d = __rust_alloc(new_len, 1);
                         ::std::ptr::copy_nonoverlapping(data.as_ptr(), d, self.len);
-                        d
                     }
+                    d
                 } else {
                     //
                     // We know from the match above that `stack.0` is definitely `Inner::Stack`.
@@ -940,14 +920,12 @@ impl String {
 
     #[inline]
     fn grow(capacity: &mut usize, data: &mut *mut u8, new_cap: usize) {
-        unsafe {
-            let d = __rust_realloc(*data, *capacity, 1, new_cap);
-            if d.is_null() {
-                panic!("OOM")
-            }
-            *data = d;
-            *capacity *= 2;
+        let d = unsafe { alloc::realloc(*data, *capacity, new_cap) };
+        if d.is_null() {
+            panic!("OOM")
         }
+        *data = d;
+        *capacity *= 2;
     }
 
     /// Clears the string. This performs no deallocation, so any string on the
@@ -1064,14 +1042,14 @@ impl Clone for String {
                     Inner::Heap {
                         capacity,
                         data: {
+                            let d = alloc::alloc(capacity);
                             unsafe {
-                                let d = __rust_alloc(capacity, 1);
                                 ptr::copy_nonoverlapping(data, d, self.len());
-                                d
                             }
+                            d
                         }
                     }
-               }
+                }
             }
         }
     }
@@ -1221,11 +1199,11 @@ impl<'a> From<&'a str> for String {
                     Inner::Heap {
                         capacity,
                         data: {
+                            let d = alloc::alloc(capacity);
                             unsafe {
-                                let d = __rust_alloc(capacity, 1);
                                 ptr::copy_nonoverlapping(item.as_ptr(), d, len);
-                                d
                             }
+                            d
                         }
                     }
                 }
@@ -1412,9 +1390,7 @@ impl Drop for String {
     fn drop(&mut self) {
         if let Inner::Heap { capacity, data } = &self.inner {
             if *capacity > 0 {
-                unsafe {
-                    __rust_dealloc(*data, *capacity, 1);
-                }
+                unsafe { alloc::dealloc(*data, *capacity) };
             }
         }
     }
