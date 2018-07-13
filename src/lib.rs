@@ -23,13 +23,13 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 mod std {
     pub use core::*;
-    pub use alloc::{alloc, boxed, string, vec};
+    pub use alloc::{boxed, string, vec};
 }
 
 pub mod string;
 pub use string::String;
 
-mod alloc {
+mod allocate {
     use std::mem;
 
     /// These are internal rust allocation functions. They're not supposed to be

@@ -1,4 +1,4 @@
-use super::{alloc, std};
+use super::{allocate as alloc, std};
 use std::borrow::Borrow;
 use std::hint::unreachable_unchecked;
 
