@@ -287,8 +287,7 @@ impl String {
     #[inline]
     pub fn pop(&mut self) -> Option<char> {
         let ch = self.chars().rev().next()?;
-        let newlen = self.len() - ch.len_utf8();
-        self.len = newlen;
+        self.len -= ch.len_utf8();
         Some(ch)
     }
 
@@ -325,14 +324,21 @@ impl String {
             None => panic!("cannot remove a char from the end of a string"),
         };
 
-        let next = idx + ch.len_utf8();
-        let len = self.len();
+        let chlen = ch.len_utf8();
+
+        let next = idx + chlen;
         unsafe {
             ptr::copy(self.as_ptr().offset(next as isize),
                       self.as_mut_ptr().offset(idx as isize),
-                      len - next);
-            self.len = len - (next - idx);
+                      self.len - next);
         }
+        // This line used to be
+        //
+        // self.len = len - (next - idx);
+        //
+        // As you'll note, next = idx + ch.len_utf8(), therefore
+        // next - len = ch.len_utf8(). len is also self.len.
+        self.len -= chlen;
         ch
     }
 
@@ -383,13 +389,12 @@ impl String {
         where F: FnMut(char) -> bool
     {
         use std::ptr;
-        let len = self.len();
         let mut del_bytes = 0;
         let mut idx = 0;
 
-        while idx < len {
+        while idx < self.len {
             let ch = unsafe {
-                self.slice_unchecked(idx, len).chars().next().unwrap()
+                self.slice_unchecked(idx, self.len).chars().next().unwrap()
             };
             let ch_len = ch.len_utf8();
 
@@ -408,7 +413,7 @@ impl String {
         }
 
         if del_bytes > 0 {
-            self.len = len - del_bytes;
+            self.len -= del_bytes;
         }
     }
 
@@ -432,11 +437,11 @@ impl String {
     pub fn as_bytes(&self) -> &[u8] {
         match self.inner {
             Inner::Stack { ref data } => {
-                &data[..self.len()]
+                &data[..self.len]
             },
             Inner::Heap { data, .. } => {
                 unsafe {
-                    &::std::slice::from_raw_parts(data, self.len())
+                    &::std::slice::from_raw_parts(data, self.len)
                 }
             }
         }
@@ -460,13 +465,12 @@ impl String {
     /// ```
     #[inline]
     pub unsafe fn as_mut_bytes(&mut self) -> &mut [u8] {
-        let len = self.len();
         match &mut self.inner {
             Inner::Stack { ref mut data } => {
-                &mut data[..len]
+                &mut data[..self.len]
             },
             Inner::Heap { capacity: _, data } => {
-                ::std::slice::from_raw_parts_mut(*data, len)
+                ::std::slice::from_raw_parts_mut(*data, self.len)
             }
         }
     }
@@ -507,16 +511,18 @@ impl String {
     /// ```
     #[inline]
     pub fn push_str(&mut self, item: &str) {
+        let new_len = self.len + item.len();
         // we match &mut self.inner so we don't copy the byte array
         match (&mut self.inner, self.len + item.len()) {
             (Inner::Stack { data }, 0...23) => {
-                data[self.len..][..item.len()].copy_from_slice(item.as_bytes());
+                // Due to a compiler bug, [x..x+y] is more efficient than [x..][..y]
+                data[self.len..new_len].copy_from_slice(item.as_bytes());
             },
             (Inner::Heap { ref mut capacity, ref mut data }, x) => {
                 if x > *capacity {
-                    let new_len = match (self.len + item.len()).checked_next_power_of_two() {
+                    let new_len = match new_len.checked_next_power_of_two() {
                         Some(x) => x,
-                        None => self.len + item.len()
+                        None => new_len
                     };
                     Self::grow(capacity, data, new_len);
                 }
@@ -526,7 +532,6 @@ impl String {
             },
             stack @ (Inner::Stack { .. } , _) => {
                 let d = if let Inner::Stack { ref data } = stack.0 {
-                    let new_len = self.len + item.len();
                     let d = alloc::alloc(match new_len.checked_next_power_of_two() {
                         Some(x) => x,
                         None => new_len
@@ -549,7 +554,7 @@ impl String {
                 };
             }
         }
-        self.len += item.len();
+        self.len = new_len;
     }
 
     /// Push a character onto the end of the string
@@ -574,15 +579,17 @@ impl String {
         let ch_len = item.len_utf8();
         let mut chs = [0; 4];
         item.encode_utf8(&mut chs);
+        let new_len = self.len + ch_len;
         // we match &mut self.inner so we don't copy the byte array
         match (&mut self.inner, self.len + ch_len) {
             (Inner::Stack { data }, 0...23) => {
-                data[self.len..][..ch_len].copy_from_slice(&chs[..ch_len]);
+                data[self.len..new_len].copy_from_slice(&chs[..ch_len]);
             },
             (Inner::Heap { ref mut capacity, ref mut data }, x) => {
                 if x > *capacity {
-                    let new_len = *capacity*2;
-                    Self::grow(capacity, data, new_len);
+                    // This is correct as long as capacity != 0
+                    let new_capacity = *capacity*2;
+                    Self::grow(capacity, data, new_capacity);
                 }
                 unsafe {
                     ::std::ptr::copy_nonoverlapping(chs.as_ptr(), data.add(self.len), ch_len)
@@ -609,7 +616,7 @@ impl String {
                 };
             }
         }
-        self.len += ch_len;
+        self.len = new_len;
     }
 
     /// Converts a vector of bytes to a `String`.
@@ -773,7 +780,7 @@ impl String {
             },
             Inner::Heap { ref capacity, ref data } => {
                 unsafe {
-                    ::std::vec::Vec::from_raw_parts(*data, self.len(), *capacity)
+                    ::std::vec::Vec::from_raw_parts(*data, self.len, *capacity)
                 }
             }
         };
@@ -826,10 +833,9 @@ impl String {
     /// ```
     #[inline]
     pub fn shrink_to_fit(&mut self) {
-        let len = self.len();
         if let Inner::Heap { ref mut capacity, ref mut data } = &mut self.inner {
-            *data = unsafe { alloc::realloc(*data, *capacity, len) };
-            *capacity = len;
+            *data = unsafe { alloc::realloc(*data, *capacity, self.len) };
+            *capacity = self.len;
         }
     }
 
@@ -880,22 +886,23 @@ impl String {
     /// ```
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
+        let new_cap = self.len + additional;
         // we match &mut self.inner so we don't copy the byte array
         match (&mut self.inner, self.len + additional) {
             (Inner::Stack { data: _ }, 0...23) => {},
             (Inner::Heap { ref mut capacity, ref mut data }, x) => {
                 if x > *capacity {
-                    let new_len = match (self.len + additional).checked_next_power_of_two() {
+                    let new_len = match new_cap.checked_next_power_of_two() {
                         Some(x) => x,
-                        None => self.len + additional
+                        None => new_cap
                     };
                     Self::grow(capacity, data, new_len);
                 }
             },
             stack @ (Inner::Stack { .. }, _) => {
-                let new_len = match (self.len + additional).checked_next_power_of_two() {
+                let new_len = match new_cap.checked_next_power_of_two() {
                     Some(x) => x,
-                    None => self.len + additional
+                    None => new_cap
                 };
                 let d = if let Inner::Stack { ref data } = stack.0 {
                     let d = alloc::alloc(new_len);
@@ -987,7 +994,7 @@ impl ::std::ops::Deref for String {
         match self.inner {
             Inner::Stack { ref data } => {
                 unsafe {
-                    ::std::str::from_utf8_unchecked(&data[..self.len()])
+                    ::std::str::from_utf8_unchecked(&data[..self.len])
                 }
             }
             _ => {
@@ -1002,11 +1009,10 @@ impl ::std::ops::Deref for String {
 impl ::std::ops::DerefMut for String {
     #[inline]
     fn deref_mut(&mut self) -> &mut str {
-        let len = self.len();
         match self.inner {
             Inner::Stack { ref mut data } => {
                 unsafe {
-                    ::std::str::from_utf8_unchecked_mut(&mut data[..len])
+                    ::std::str::from_utf8_unchecked_mut(&mut data[..self.len])
                 }
             }
             _ => {
@@ -1022,7 +1028,7 @@ impl Clone for String {
     #[inline]
     fn clone(&self) -> Self {
         String {
-            len: self.len(),
+            len: self.len,
             inner: match (self.inner, self.len) {
                 stack @ (Inner::Stack { .. }, _) => stack.0,
                 (Inner::Heap { data, .. }, 0...23) => {
@@ -1044,7 +1050,7 @@ impl Clone for String {
                         data: {
                             let d = alloc::alloc(capacity);
                             unsafe {
-                                ptr::copy_nonoverlapping(data, d, self.len());
+                                ptr::copy_nonoverlapping(data, d, self.len);
                             }
                             d
                         }
@@ -1179,13 +1185,13 @@ impl<'a> From<&'a str> for String {
     #[inline]
     fn from(item: &str) -> String {
         String {
-            len: item.len(),
+            len: item.len,
             inner: match item.len() {
                 0...23 => {
                     Inner::Stack {
                         data: {
                             let mut d = [0u8;23];
-                            d[..item.len()].copy_from_slice(item.as_bytes());
+                            d[..item.len].copy_from_slice(item.as_bytes());
                             d
                         }
                     }
