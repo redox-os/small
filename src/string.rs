@@ -925,7 +925,7 @@ impl String {
             panic!("OOM")
         }
         *data = d;
-        *capacity *= 2;
+        *capacity = new_cap;
     }
 
     /// Clears the string. This performs no deallocation, so any string on the
