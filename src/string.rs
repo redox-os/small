@@ -1185,13 +1185,13 @@ impl<'a> From<&'a str> for String {
     #[inline]
     fn from(item: &str) -> String {
         String {
-            len: item.len,
+            len: item.len(),
             inner: match item.len() {
                 0...23 => {
                     Inner::Stack {
                         data: {
                             let mut d = [0u8;23];
-                            d[..item.len].copy_from_slice(item.as_bytes());
+                            d[..item.len()].copy_from_slice(item.as_bytes());
                             d
                         }
                     }
