@@ -40,7 +40,7 @@ mod allocate {
     /// Returns
     /// -------
     /// A null pointer on failure, a valid pointer on success
-    #[inline]
+    #[inline(always)]
     pub fn alloc<T>(count: usize) -> *mut T {
         unsafe {
             std_alloc(Layout::from_size_align_unchecked(mem::size_of::<T>() * count, mem::align_of::<T>())) as _
@@ -48,13 +48,13 @@ mod allocate {
     }
 
     /// Deallocate `ptr` of count `count`
-    #[inline]
+    #[inline(always)]
     pub unsafe fn dealloc<T>(ptr: *mut T, count: usize) {
         std_dealloc(ptr as *mut u8, Layout::from_size_align_unchecked(mem::size_of::<T>() * count, mem::align_of::<T>()));
     }
 
     /// Reallocate `ptr` with count `old_count` to be of size `new_count`
-    #[inline]
+    #[inline(always)]
     pub unsafe fn realloc<T>(ptr: *mut T, old_count: usize, count: usize) -> *mut T {
         std_realloc(ptr as *mut u8, Layout::from_size_align_unchecked(mem::size_of::<T>() * old_count, mem::align_of::<T>()), mem::size_of::<T>() * count) as _
     }
