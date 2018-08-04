@@ -394,7 +394,7 @@ impl String {
 
         while idx < self.len {
             let ch = unsafe {
-                self.slice_unchecked(idx, self.len).chars().next().unwrap()
+                self.get_unchecked(idx..self.len).chars().next().unwrap()
             };
             let ch_len = ch.len_utf8();
 
@@ -499,7 +499,7 @@ impl String {
     /// [`str`]: https://doc.rust-lang.org/nightly/std/primitive.str.html
     ///
     /// # Examples
-    /// 
+    ///
     /// Basic usage:
     /// ```
     /// # extern crate small;
