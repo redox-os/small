@@ -2,6 +2,11 @@ use super::{allocate as alloc, std};
 use std::borrow::Borrow;
 use std::hint::unreachable_unchecked;
 
+#[cfg(all(feature = "serde", feature = "std"))]
+use serde::{de::*, *};
+#[cfg(all(feature = "serde", feature = "std"))]
+use std::fmt;
+
 #[derive(Debug, Clone, Copy)]
 enum Inner {
     Stack {
@@ -1484,6 +1489,144 @@ impl FromUtf8Error {
     #[inline]
     pub fn utf8_error(&self) -> std::str::Utf8Error {
         self.error
+    }
+}
+
+#[cfg(all(feature = "serde", feature = "std"))]
+impl Serialize for String {
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self)
+    }
+}
+
+#[cfg(all(feature = "serde", feature = "std"))]
+struct StringVisitor;
+
+#[cfg(all(feature = "serde", feature = "std"))]
+struct StringInPlaceVisitor<'a>(&'a mut String);
+
+#[cfg(all(feature = "serde", feature = "std"))]
+impl<'de> Visitor<'de> for StringVisitor {
+    type Value = String;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a string")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        Ok(String::from(v.to_owned()))
+    }
+
+    fn visit_string<E>(self, v: std::string::String) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        Ok(String::from_string(v))
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        use std::str;
+        match str::from_utf8(v) {
+            Ok(s) => Ok(String::from(s.to_owned())),
+            Err(_) => Err(Error::invalid_value(Unexpected::Bytes(v), &self)),
+        }
+    }
+
+    fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        match String::from_utf8(v) {
+            Ok(s) => Ok(s),
+            Err(e) => Err(Error::invalid_value(
+                Unexpected::Bytes(&e.into_bytes()),
+                &self,
+            )),
+        }
+    }
+}
+
+#[cfg(all(feature = "serde", feature = "std"))]
+impl<'a, 'de> Visitor<'de> for StringInPlaceVisitor<'a> {
+    type Value = ();
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a string")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        self.0.clear();
+        self.0.push_str(v);
+        Ok(())
+    }
+
+    fn visit_string<E>(self, v: std::string::String) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        *self.0 = String::from_string(v);
+        Ok(())
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        use std::str;
+        match str::from_utf8(v) {
+            Ok(s) => {
+                self.0.clear();
+                self.0.push_str(s);
+                Ok(())
+            }
+            Err(_) => Err(Error::invalid_value(Unexpected::Bytes(v), &self)),
+        }
+    }
+
+    fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        match String::from_utf8(v) {
+            Ok(s) => {
+                *self.0 = s;
+                Ok(())
+            }
+            Err(e) => Err(Error::invalid_value(
+                Unexpected::Bytes(&e.into_bytes()),
+                &self,
+            )),
+        }
+    }
+}
+
+#[cfg(all(feature = "serde", feature = "std"))]
+impl<'de> Deserialize<'de> for String {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_string(StringVisitor)
+    }
+
+    fn deserialize_in_place<D>(deserializer: D, place: &mut Self) -> Result<(), D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_string(StringInPlaceVisitor(place))
     }
 }
 

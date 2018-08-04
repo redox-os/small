@@ -26,6 +26,9 @@ mod std {
     pub use alloc::{alloc, boxed, string, vec};
 }
 
+#[cfg(all(feature = "std", feature = "serde"))]
+extern crate serde;
+
 pub mod string;
 pub use string::String;
 
