@@ -689,11 +689,13 @@ impl String {
     /// [`FromUtf8Error`]: struct.FromUtf8Error.html
     /// [`Err`]: https://doc.rust-lang.org/nightly/std/result/enum.Result.html#variant.Err
     #[inline]
-    pub fn from_utf8(mut vec: std::vec::Vec<u8>) -> Result<String, FromUtf8Error> {
+    pub fn from_utf8(vec: std::vec::Vec<u8>) -> Result<String, FromUtf8Error> {
         use std::str;
+        use alloc::boxed::Box;
         match str::from_utf8(&vec) {
             Ok(..) => {
-                let (capacity, data, len) = (vec.capacity(), vec.as_mut_ptr(), vec.len());
+                let boxed = vec.into_boxed_slice();
+                let (capacity, len, data) = (boxed.len(), boxed.len(), Box::into_raw(boxed) as _);
                 Ok(String {
                     len,
                     inner: Inner::Heap {
