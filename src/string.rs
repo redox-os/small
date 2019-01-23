@@ -536,11 +536,12 @@ impl String {
                 }
             },
             stack @ (Inner::Stack { .. } , _) => {
+                let capacity = match new_len.checked_next_power_of_two() {
+                    Some(x) => x,
+                    None => new_len
+                };
                 let d = if let Inner::Stack { ref data } = stack.0 {
-                    let d = alloc::alloc(match new_len.checked_next_power_of_two() {
-                        Some(x) => x,
-                        None => new_len
-                    });
+                    let d = alloc::alloc(capacity);
                     unsafe {
                         ::std::ptr::copy_nonoverlapping(data.as_ptr(), d, self.len);
                         ::std::ptr::copy_nonoverlapping(item.as_ptr(), d.add(self.len), item.len());
@@ -554,7 +555,7 @@ impl String {
                     unsafe { unreachable_unchecked() }
                 };
                 *stack.0 = Inner::Heap {
-                    capacity: 32,
+                    capacity: capacity,
                     data: d
                 };
             }
