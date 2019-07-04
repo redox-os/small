@@ -7,7 +7,7 @@ use serde::{de::*, *};
 #[cfg(all(feature = "serde", feature = "std"))]
 use std::fmt;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 enum Inner {
     Stack {
         data: [u8;23]
@@ -46,11 +46,26 @@ unsafe impl Sync for Inner {}
 /// [`&str`]: https://doc.rust-lang.org/nightly/std/primitive.str.html
 /// [`from_string`]: #method.from_string
 ///
-#[derive(Debug)]
 pub struct String {
     len: usize,
     inner: Inner
 }
+
+impl fmt::Debug for String {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "On {}: '{}'",
+            if let Inner::Stack { .. } = self.inner {
+                "stack"
+            } else {
+                "heap"
+            },
+            self,
+        )
+    }
+}
+
 impl String {
     /// Creates a new empty `String`.
     ///
@@ -692,7 +707,6 @@ impl String {
     #[inline]
     pub fn from_utf8(vec: std::vec::Vec<u8>) -> Result<String, FromUtf8Error> {
         use std::str;
-        use std::boxed::Box;
         match str::from_utf8(&vec) {
             Ok(..) => {
                 let boxed = vec.into_boxed_slice();
