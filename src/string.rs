@@ -51,6 +51,7 @@ pub struct String {
     inner: Inner
 }
 
+#[cfg(all(feature = "serde", feature = "std"))]
 impl fmt::Debug for String {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
