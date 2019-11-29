@@ -711,7 +711,7 @@ impl String {
         match str::from_utf8(&vec) {
             Ok(..) => {
                 let boxed = vec.into_boxed_slice();
-                let (capacity, len, data) = (boxed.len(), boxed.len(), Box::into_raw(boxed) as _);
+                let (capacity, len, data) = (boxed.len(), boxed.len(), std::boxed::Box::into_raw(boxed) as _);
                 Ok(String {
                     len,
                     inner: Inner::Heap {
