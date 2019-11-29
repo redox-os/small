@@ -4,7 +4,6 @@ use std::hint::unreachable_unchecked;
 
 #[cfg(all(feature = "serde", feature = "std"))]
 use serde::{de::*, *};
-#[cfg(all(feature = "serde", feature = "std"))]
 use std::fmt;
 
 #[derive(Clone, Copy)]
@@ -51,7 +50,6 @@ pub struct String {
     inner: Inner
 }
 
-#[cfg(all(feature = "serde", feature = "std"))]
 impl fmt::Debug for String {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
