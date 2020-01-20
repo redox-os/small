@@ -994,6 +994,14 @@ impl AsRef<[u8]> for String {
     }
 }
 
+#[cfg(feature = "std")]
+impl AsRef<std::ffi::OsStr> for String {
+    #[inline]
+    fn as_ref(&self) -> &std::ffi::OsStr {
+        AsRef::<str>::as_ref(self).as_ref()
+    }
+}
+
 impl Default for String {
     #[inline]
     fn default() -> String {
