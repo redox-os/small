@@ -533,7 +533,7 @@ impl String {
         let new_len = self.len + item.len();
         // we match &mut self.inner so we don't copy the byte array
         match (&mut self.inner, self.len + item.len()) {
-            (Inner::Stack { data }, 0...23) => {
+            (Inner::Stack { data }, 0..=23) => {
                 // Due to a compiler bug, [x..x+y] is more efficient than [x..][..y]
                 data[self.len..new_len].copy_from_slice(item.as_bytes());
             },
@@ -602,7 +602,7 @@ impl String {
         let new_len = self.len + ch_len;
         // we match &mut self.inner so we don't copy the byte array
         match (&mut self.inner, self.len + ch_len) {
-            (Inner::Stack { data }, 0...23) => {
+            (Inner::Stack { data }, 0..=23) => {
                 data[self.len..new_len].copy_from_slice(&chs[..ch_len]);
             },
             (Inner::Heap { ref mut capacity, ref mut data }, x) => {
@@ -910,7 +910,7 @@ impl String {
         let new_cap = self.len + additional;
         // we match &mut self.inner so we don't copy the byte array
         match (&mut self.inner, self.len + additional) {
-            (Inner::Stack { data: _ }, 0...23) => {},
+            (Inner::Stack { data: _ }, 0..=23) => {},
             (Inner::Heap { ref mut capacity, ref mut data }, x) => {
                 if x > *capacity {
                     let new_len = match new_cap.checked_next_power_of_two() {
@@ -1060,7 +1060,7 @@ impl Clone for String {
             len: self.len,
             inner: match (self.inner, self.len) {
                 stack @ (Inner::Stack { .. }, _) => stack.0,
-                (Inner::Heap { data, .. }, 0...23) => {
+                (Inner::Heap { data, .. }, 0..=23) => {
                     Inner::Stack {
                         data: {
                             let mut d = [0u8;23];
@@ -1216,7 +1216,7 @@ impl<'a> From<&'a str> for String {
         String {
             len: item.len(),
             inner: match item.len() {
-                0...23 => {
+                0..=23 => {
                     Inner::Stack {
                         data: {
                             let mut d = [0u8;23];
