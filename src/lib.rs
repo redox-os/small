@@ -14,7 +14,6 @@
 //! [`String`]: string/struct.String.html
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(not(feature = "std"), feature(alloc))]
 
 #[cfg(not(feature = "std"))]
 #[cfg_attr(test, macro_use)]
